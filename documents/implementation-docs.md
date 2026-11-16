@@ -17,7 +17,7 @@
 | `src/modules/countries/country.service.ts` | dialect query joins `languoid_countries`; `getCountryByCode` returns languages + dialects as `languages` |
 | `src/config/knex.ts`, `knexfile.ts` | knex config moved into `src` (so the build's `rootDir` contains it); `knexfile.ts` now re-exports it for the knex CLI |
 | `src/cli/manage.ts` | new entry point and main menu |
-| `src/cli/ui.ts` | new: prompt helpers (country/language search pickers, validated inputs) |
+| `src/cli/ui.ts` | new: prompt helpers (country/language search pickers, validated inputs); every prompt is wrapped so **Esc** aborts it (`AbortSignal`) and throws `GoBack`; `menu()` turns Esc into the "back" choice, `attempt()` turns it into "Cancelled." and stays in the menu |
 | `src/cli/menus/{dialects,countries,imports,history}.ts` | new menus |
 | `package.json` | `manage` script, `@inquirer/prompts` dependency |
 | `documents/` | master plan, this file, `test-cases.md` |

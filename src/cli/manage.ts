@@ -5,7 +5,7 @@ import { countriesAndLanguagesMenu } from './menus/countries';
 import { dialectsMenu } from './menus/dialects';
 import { historyMenu } from './menus/history';
 import { importsMenu } from './menus/imports';
-import { pause } from './ui';
+import { GoBack, pause } from './ui';
 
 const isExitPrompt = (error: unknown): boolean =>
   error instanceof Error && error.name === 'ExitPromptError';
@@ -25,7 +25,7 @@ const main = async (): Promise<void> => {
     return;
   }
 
-  console.log('\nByaheGo Locale Service — manager (Ctrl+C to exit)\n');
+  console.log('\nByaheGo Locale Service — manager (Esc = back, Ctrl+C = exit)\n');
 
   try {
     for (;;) {
@@ -50,6 +50,9 @@ const main = async (): Promise<void> => {
         } else break;
       } catch (error) {
         if (isExitPrompt(error)) throw error;
+
+        // Esc inside a menu's first prompt: back to the main menu.
+        if (error instanceof GoBack) continue;
 
         // Keep the manager alive on a failed action.
         console.error('\nAction failed:', error instanceof Error ? error.message : error, '\n');

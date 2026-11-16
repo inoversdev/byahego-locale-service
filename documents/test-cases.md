@@ -11,8 +11,8 @@
 | Language code (CLDR) | letters with optional `-subtags`, max 35, unique |
 | ISO 639-1 / 639-3 | 2 / 3 lowercase letters, optional |
 | Dialect name | required, max 255 |
-| Latitude / longitude | -90..90 / -180..180, optional |
-| Population percent | 0..100, optional |
+| Latitude / longitude | decimals allowed (e.g. `16.88009`), -90..90 / -180..180, up to 7 decimals, both or neither |
+| Population percent | decimals allowed (e.g. `64.5`), 0..100, up to 3 decimals, optional |
 
 ## Happy path
 1. **Menu and exit.** `npm run manage` → main menu shows 5 options → *Exit* prints `Bye.` and the process ends.
@@ -36,13 +36,30 @@
 5. `GET /api/v1/countries/XX` → 404 `Country not found.`
 6. Add a manual dialect to PH with the manager → it appears at the end of `data.languages` with `type: "dialect"`.
 
+## Esc = go back
+Run `npm run manage` and press **Esc** (allow about half a second for it to register):
+1. Dialects menu (after choosing a country) → Esc → main menu.
+2. Dialects → at the country search → Esc → main menu.
+3. *Add a new dialect*, enter a name, then press Esc at *Parent language* → `Cancelled.` and you are back in the Dialects menu. Check that no row was added to `glottolog_languoids`.
+4. Countries & languages → Countries → *Add a country* → Esc at *Country code* → `Cancelled.`, back in the Countries menu. Esc again → Countries & languages menu. Esc again → main menu.
+5. Country languages → at the country search → Esc → back in the Countries & languages menu (no message).
+6. Run imports → Esc at the dataset menu → main menu. Run imports → CLDR → Esc at the dry-run question → main menu, and no new row in `dataset_imports`.
+7. Main menu → Esc → nothing happens, and the menu stays.
+8. Arrow keys still move the selection (they must not act as Esc). Ctrl+C still exits with `Bye.`.
+9. *Import history* → at *Press Enter to continue* press Esc → returns to the main menu.
+10. Finish a normal add-dialect form without Esc → it still saves (regression check).
+
 ## Negative / error tests
 1. Add a country with a code that already exists → "already exists", nothing written.
 2. Add a country with a code like `P1` or `PHL` → rejected with the format hint.
 3. Add a country with an alpha-3 already used elsewhere → refused with the owning country shown.
 4. Add a language with an existing CLDR code → "already exists".
 5. Dialect name left blank → "This field is required."
-6. ISO 639-3 `AB1`, latitude `95`, longitude `-181`, population `101` → each is rejected.
+6. ISO 639-3 `AB1`, latitude `95`, longitude `-181`, population `101` → each is rejected at its prompt with a message (for example "Value must be between -90 and 90"). `abc` as a latitude → "You must provide a valid numeric value".
+6a. **Decimals accepted:** latitude `16.88009`, longitude `120.5` → accepted and saved (a 9-decimal value is stored rounded to 7 decimals). Population `64.5` → accepted, stored as `64.500`. `0` and `-90` are valid latitudes.
+6b. **Coordinates together:** give a latitude but leave longitude empty → "Latitude and longitude must be given together", both are asked again with the typed value kept. Leaving both empty is fine.
+6c. **Edit keeps decimals:** edit a dialect that has coordinates → the current values show as defaults and Enter keeps them unchanged.
+6d. **Duplicates at the prompt:** *Add a country* with code `PH` → "already exists" right at the code prompt; an alpha-3 already held by another country → "already used by …" at its prompt; *Add a language* with `en` → "already exists". Nothing is saved, and Esc cancels the form.
 7. *Edit/Remove a manual dialect* in a country with only imported dialects → "No manual dialects…" message; imported dialects cannot be edited.
 8. *Remove a manual link* where only imported links exist → explanatory message.
 9. Stop MySQL (or break `DB_HOST`) → `npm run manage` prints "Could not connect to the database" and exits with code 1.

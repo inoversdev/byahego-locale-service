@@ -38,9 +38,10 @@ npm run manage
 | ↑ / ↓ | Move through a menu |
 | Enter | Select / confirm |
 | Type | Filter in search prompts (countries, languages, dialects) |
+| **Esc** | Go back: leaves the current menu or picker, or cancels the form you are filling in (nothing is saved). Does nothing on the main menu |
 | Ctrl+C | Exit from anywhere |
 
-Every submenu has a **← Back** option. Optional fields say `(optional)`; leave them empty and press Enter to skip. Prompts that edit something show the current value as the default, so press Enter to keep it.
+Every submenu has a **← Back** option, and you can press **Esc** at any prompt instead. Esc in the middle of an add/edit form cancels the whole form and returns to the menu you came from (it prints `Cancelled.`). A lone Esc takes about half a second to register, because arrow keys also start with the Esc character. The main menu ignores Esc so you never leave by accident; use **Exit** or Ctrl+C. Optional fields say `(optional)`; leave them empty and press Enter to skip. Prompts that edit something show the current value as the default, so press Enter to keep it.
 
 The main menu:
 
@@ -80,7 +81,7 @@ Choose **Dialects per country**, then search for a country by name or code (for 
    | Dialect name | Required, up to 255 characters |
    | Parent language | Search by name, or pick `(none)` |
    | ISO 639-3 code | Optional, three lowercase letters |
-   | Latitude / Longitude | Optional, -90 to 90 and -180 to 180 |
+   | Latitude / Longitude | Optional decimals (for example `16.88009`), -90 to 90 and -180 to 180, up to 7 decimals. Enter both or neither |
    | Description | Optional |
 
 4. Confirm with **Yes**. The tool prints `Added dialect x_000001 (…) to PH.`
@@ -118,9 +119,9 @@ Pick a country, then:
 | Numeric code | 3 digits |
 | Language code | Letters with optional `-subtags`, max 35 characters, must be new |
 | ISO 639-1 / 639-3 | 2 / 3 lowercase letters |
-| Population percent | 0 to 100 |
+| Population percent | Decimals allowed (for example `64.5`), 0 to 100, up to 3 decimals |
 
-Invalid input is rejected on the spot with a hint, so you can correct it and continue.
+Invalid input is rejected on the spot with a hint, so you can correct it and continue. "Already exists" checks (country code, alpha-3 code, language code) also run at the prompt itself, so you find out before filling in the rest of the form. Extra decimals beyond the limits above are rounded.
 
 ---
 

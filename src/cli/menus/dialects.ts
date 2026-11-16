@@ -1,12 +1,15 @@
 import { Knex } from 'knex';
-import { confirm, search, select } from '@inquirer/prompts';
 import {
   BACK,
-  askNumber,
+  askCoordinates,
   askText,
+  attempt,
+  confirm,
+  menu,
   pickCountry,
   pickFromList,
-  printTable
+  printTable,
+  search
 } from '../ui';
 
 interface DialectRow {
@@ -102,8 +105,7 @@ const addDialect = async (db: Knex, countryCode: string): Promise<void> => {
     patternHint: 'Use three lowercase letters.',
     transform: (value) => value.toLowerCase()
   });
-  const latitude = await askNumber('Latitude', { min: -90, max: 90 });
-  const longitude = await askNumber('Longitude', { min: -180, max: 180 });
+  const { latitude, longitude } = await askCoordinates();
   const description = await askText('Description');
 
   const ok = await confirm({
@@ -186,15 +188,9 @@ const editDialect = async (db: Knex, countryCode: string): Promise<void> => {
     patternHint: 'Use three lowercase letters.',
     transform: (value) => value.toLowerCase()
   });
-  const latitude = await askNumber('Latitude', {
-    min: -90,
-    max: 90,
-    default: current.latitude === null ? null : Number(current.latitude)
-  });
-  const longitude = await askNumber('Longitude', {
-    min: -180,
-    max: 180,
-    default: current.longitude === null ? null : Number(current.longitude)
+  const { latitude, longitude } = await askCoordinates({
+    latitude: current.latitude === null ? null : Number(current.latitude),
+    longitude: current.longitude === null ? null : Number(current.longitude)
   });
   const description = await askText('Description', { default: current.description });
 
@@ -293,7 +289,7 @@ export const dialectsMenu = async (db: Knex): Promise<void> => {
   for (;;) {
     const country = await db('countries').where({ code: countryCode }).first('name');
 
-    const action = await select({
+    const action = await menu({
       message: `Dialects — ${countryCode} ${country?.name ?? ''}`,
       choices: [
         { name: 'List dialects', value: 'list' },
@@ -322,22 +318,24 @@ export const dialectsMenu = async (db: Knex): Promise<void> => {
         );
         break;
       case 'add':
-        await addDialect(db, countryCode);
+        await attempt(() => addDialect(db, countryCode));
         break;
       case 'edit':
-        await editDialect(db, countryCode);
+        await attempt(() => editDialect(db, countryCode));
         break;
       case 'remove':
-        await removeDialect(db, countryCode);
+        await attempt(() => removeDialect(db, countryCode));
         break;
       case 'attach':
-        await attachDialect(db, countryCode);
+        await attempt(() => attachDialect(db, countryCode));
         break;
       case 'detach':
-        await detachDialect(db, countryCode);
+        await attempt(() => detachDialect(db, countryCode));
         break;
       case 'country':
-        countryCode = await pickCountry(db);
+        await attempt(async () => {
+          countryCode = await pickCountry(db);
+        });
         break;
       default:
         return;

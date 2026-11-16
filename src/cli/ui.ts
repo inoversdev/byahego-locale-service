@@ -1,7 +1,98 @@
+import readline from 'readline';
 import { Knex } from 'knex';
-import { input, number, search, select } from '@inquirer/prompts';
+import {
+  input as rawInput,
+  number as rawNumber,
+  search as rawSearch,
+  select as rawSelect,
+  confirm as rawConfirm
+} from '@inquirer/prompts';
 
 export const BACK = '__back__';
+
+/** Thrown by any prompt when the user presses Esc. */
+export class GoBack extends Error {
+  constructor() {
+    super('Go back');
+    this.name = 'GoBack';
+  }
+}
+
+// Make sure stdin emits `keypress` events (inquirer's readline does this too).
+readline.emitKeypressEvents(process.stdin);
+
+/**
+ * Runs a prompt that can be cancelled with Esc. Esc aborts the prompt through
+ * its AbortSignal, and we surface that as `GoBack`. Ctrl+C is untouched.
+ * Note: Node reports a lone Esc after a short escape-sequence timeout (~0.5s).
+ */
+const escapable = async <R>(
+  run: (context: { signal: AbortSignal }) => Promise<R>
+): Promise<R> => {
+  const controller = new AbortController();
+
+  const onKeypress = (_chunk: unknown, key?: { name?: string }): void => {
+    if (key?.name === 'escape') controller.abort();
+  };
+
+  process.stdin.on('keypress', onKeypress);
+
+  try {
+    return await run({ signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new GoBack();
+    throw error;
+  } finally {
+    process.stdin.off('keypress', onKeypress);
+  }
+};
+
+// Same name and signature as the inquirer prompt (generics are preserved).
+const withEscape = <
+  F extends (config: any, context?: any) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
+>(
+  prompt: F
+): F =>
+  ((config: unknown) =>
+    escapable((context) => prompt(config, context))) as unknown as F;
+
+export const select = withEscape(rawSelect);
+export const input = withEscape(rawInput);
+export const number = withEscape(rawNumber);
+export const search = withEscape(rawSearch);
+export const confirm = withEscape(rawConfirm);
+
+/** A menu `select`: Esc is the same as choosing the "back" entry. */
+export const menu = async (
+  config: Parameters<typeof rawSelect<string>>[0]
+): Promise<string> => {
+  try {
+    return await select<string>(config);
+  } catch (error) {
+    if (error instanceof GoBack) return 'back';
+    throw error;
+  }
+};
+
+/**
+ * Runs one action (a form, a picker...) from inside a menu. Esc cancels it and
+ * returns to the menu, nothing saved.
+ */
+export const attempt = async (
+  action: () => Promise<void>,
+  options: { silent?: boolean } = {}
+): Promise<void> => {
+  try {
+    await action();
+  } catch (error) {
+    if (error instanceof GoBack) {
+      if (!options.silent) console.log('\nCancelled.\n');
+      return;
+    }
+
+    throw error;
+  }
+};
 
 export const printTable = (
   rows: Record<string, unknown>[],
@@ -17,7 +108,11 @@ export const printTable = (
 };
 
 export const pause = async (): Promise<void> => {
-  await input({ message: 'Press Enter to continue' });
+  try {
+    await input({ message: 'Press Enter to continue (Esc to skip)' });
+  } catch (error) {
+    if (!(error instanceof GoBack)) throw error;
+  }
 };
 
 /** Optional/required text prompt that returns a trimmed string or null. */
@@ -30,12 +125,14 @@ export const askText = async (
     patternHint?: string;
     maxLength?: number;
     transform?: (value: string) => string;
+    /** Extra check (e.g. "already exists") run last, on the transformed value. Return true or an error message. */
+    validate?: (value: string) => Promise<true | string> | true | string;
   } = {}
 ): Promise<string | null> => {
   const value = await input({
     message: options.required ? message : `${message} (optional)`,
     default: options.default ?? undefined,
-    validate: (raw) => {
+    validate: async (raw) => {
       const text = raw.trim();
 
       if (!text) {
@@ -46,11 +143,13 @@ export const askText = async (
         return `Maximum ${options.maxLength} characters.`;
       }
 
-      if (options.pattern && !options.pattern.test(options.transform ? options.transform(text) : text)) {
+      const transformed = options.transform ? options.transform(text) : text;
+
+      if (options.pattern && !options.pattern.test(transformed)) {
         return options.patternHint ?? 'Invalid format.';
       }
 
-      return true;
+      return options.validate ? options.validate(transformed) : true;
     }
   });
 
@@ -63,19 +162,69 @@ export const askText = async (
   return options.transform ? options.transform(text) : text;
 };
 
+/**
+ * Optional decimal number. `step: 'any'` is essential: inquirer's number prompt
+ * defaults to `step: 1`, which rejects every decimal (e.g. 16.88009) and also
+ * ignores decimal defaults. `decimals` rounds to what the DB column can store.
+ */
 export const askNumber = async (
   message: string,
-  options: { min: number; max: number; default?: number | null }
+  options: {
+    min: number;
+    max: number;
+    default?: number | null;
+    decimals?: number;
+  }
 ): Promise<number | null> => {
   const value = await number({
     message: `${message} (optional, ${options.min} to ${options.max})`,
     default: options.default ?? undefined,
     required: false,
     min: options.min,
-    max: options.max
+    max: options.max,
+    step: 'any'
   });
 
-  return value === undefined ? null : value;
+  if (value === undefined) {
+    return null;
+  }
+
+  return options.decimals === undefined
+    ? value
+    : Number(value.toFixed(options.decimals));
+};
+
+/** Latitude and longitude must be given together, or both left empty. */
+export const askCoordinates = async (
+  defaults: { latitude?: number | null; longitude?: number | null } = {}
+): Promise<{ latitude: number | null; longitude: number | null }> => {
+  let latitudeDefault = defaults.latitude ?? null;
+  let longitudeDefault = defaults.longitude ?? null;
+
+  for (;;) {
+    const latitude = await askNumber('Latitude', {
+      min: -90,
+      max: 90,
+      decimals: 7,
+      default: latitudeDefault
+    });
+    const longitude = await askNumber('Longitude', {
+      min: -180,
+      max: 180,
+      decimals: 7,
+      default: longitudeDefault
+    });
+
+    if ((latitude === null) === (longitude === null)) {
+      return { latitude, longitude };
+    }
+
+    console.log('Latitude and longitude must be given together. Please enter both, or leave both empty.');
+
+    // Keep what was typed so it does not have to be retyped.
+    latitudeDefault = latitude ?? latitudeDefault;
+    longitudeDefault = longitude ?? longitudeDefault;
+  }
 };
 
 export const pickCountry = async (

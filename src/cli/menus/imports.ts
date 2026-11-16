@@ -1,10 +1,9 @@
 import { Knex } from 'knex';
-import { confirm, select } from '@inquirer/prompts';
 import { runCldrImport } from '../../scripts/import-cldr';
 import { runIsoImport } from '../../scripts/import-iso';
 import { runGlottologImport } from '../../scripts/import-glottolog';
 import { ImportOptions, ImportResult } from '../../scripts/utils';
-import { printTable } from '../ui';
+import { confirm, menu, printTable } from '../ui';
 
 type Runner = (db: Knex, options: ImportOptions) => Promise<ImportResult>;
 
@@ -46,7 +45,7 @@ const installCancelHandler = (db: Knex): (() => void) => {
 };
 
 export const importsMenu = async (db: Knex): Promise<void> => {
-  const dataset = await select({
+  const dataset = await menu({
     message: 'Run an import',
     choices: [
       ...Object.entries(RUNNERS).map(([value, { label }]) => ({

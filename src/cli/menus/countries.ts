@@ -1,13 +1,16 @@
 import { Knex } from 'knex';
-import { confirm, select } from '@inquirer/prompts';
 import {
   BACK,
   askNumber,
   askText,
+  attempt,
+  confirm,
+  menu,
   pickCountry,
   pickFromList,
   pickLanguage,
-  printTable
+  printTable,
+  select
 } from '../ui';
 
 const OFFICIAL_STATUSES = [
@@ -24,30 +27,28 @@ const addCountry = async (db: Knex): Promise<void> => {
     required: true,
     pattern: /^[A-Z]{2}$/,
     patternHint: 'Use two letters, e.g. PH.',
-    transform: (value) => value.toUpperCase()
+    transform: (value) => value.toUpperCase(),
+    validate: async (value) =>
+      (await db('countries').where({ code: value }).first('code'))
+        ? `Country ${value} already exists. Use "Edit a country" instead.`
+        : true
   });
-
-  if (await db('countries').where({ code }).first('code')) {
-    console.log(`Country ${code} already exists. Use "Edit a country" instead.`);
-    return;
-  }
 
   const name = await askText('Name', { required: true, maxLength: 150 });
   const nativeName = await askText('Native name', { maxLength: 150 });
   const alpha3 = await askText('Alpha-3 code', {
     pattern: /^[A-Z]{3}$/,
     patternHint: 'Use three letters, e.g. PHL.',
-    transform: (value) => value.toUpperCase()
+    transform: (value) => value.toUpperCase(),
+    validate: async (value) => {
+      const clash = await db('countries').where({ alpha3_code: value }).first('code');
+      return clash ? `Alpha-3 code ${value} is already used by ${clash.code}.` : true;
+    }
   });
   const numeric = await askText('Numeric code', {
     pattern: /^\d{3}$/,
     patternHint: 'Use three digits, e.g. 608.'
   });
-
-  if (alpha3 && (await db('countries').where({ alpha3_code: alpha3 }).first('code'))) {
-    console.log(`Alpha-3 code ${alpha3} is already used by another country.`);
-    return;
-  }
 
   await db('countries').insert({
     code,
@@ -80,25 +81,20 @@ const editCountry = async (db: Knex): Promise<void> => {
     default: current.alpha3_code,
     pattern: /^[A-Z]{3}$/,
     patternHint: 'Use three letters, e.g. PHL.',
-    transform: (value) => value.toUpperCase()
+    transform: (value) => value.toUpperCase(),
+    validate: async (value) => {
+      const clash = await db('countries')
+        .where({ alpha3_code: value })
+        .whereNot({ code })
+        .first('code');
+      return clash ? `Alpha-3 code ${value} is already used by ${clash.code}.` : true;
+    }
   });
   const numeric = await askText('Numeric code', {
     default: current.numeric_code,
     pattern: /^\d{3}$/,
     patternHint: 'Use three digits, e.g. 608.'
   });
-
-  if (alpha3) {
-    const clash = await db('countries')
-      .where({ alpha3_code: alpha3 })
-      .whereNot({ code })
-      .first('code');
-
-    if (clash) {
-      console.log(`Alpha-3 code ${alpha3} is already used by ${clash.code}.`);
-      return;
-    }
-  }
 
   await db('countries').where({ code }).update({
     name,
@@ -113,7 +109,7 @@ const editCountry = async (db: Knex): Promise<void> => {
 
 const countriesMenu = async (db: Knex): Promise<void> => {
   for (;;) {
-    const action = await select({
+    const action = await menu({
       message: 'Countries',
       choices: [
         { name: 'Add a country', value: 'add' },
@@ -122,8 +118,8 @@ const countriesMenu = async (db: Knex): Promise<void> => {
       ]
     });
 
-    if (action === 'add') await addCountry(db);
-    else if (action === 'edit') await editCountry(db);
+    if (action === 'add') await attempt(() => addCountry(db));
+    else if (action === 'edit') await attempt(() => editCountry(db));
     else return;
   }
 };
@@ -135,13 +131,12 @@ const addLanguage = async (db: Knex): Promise<void> => {
     required: true,
     maxLength: 35,
     pattern: /^[a-zA-Z]{2,8}(-[A-Za-z0-9]{1,8})*$/,
-    patternHint: 'Use letters, optionally followed by -subtags.'
+    patternHint: 'Use letters, optionally followed by -subtags.',
+    validate: async (value) =>
+      (await db('languages').where({ cldr_code: value }).first('id'))
+        ? `Language ${value} already exists. Use "Edit a language" instead.`
+        : true
   });
-
-  if (await db('languages').where({ cldr_code: cldrCode }).first('id')) {
-    console.log(`Language ${cldrCode} already exists. Use "Edit a language" instead.`);
-    return;
-  }
 
   const englishName = await askText('English name', { required: true, maxLength: 150 });
   const nativeName = await askText('Native name', { maxLength: 150 });
@@ -209,7 +204,7 @@ const editLanguage = async (db: Knex): Promise<void> => {
 
 const languagesMenu = async (db: Knex): Promise<void> => {
   for (;;) {
-    const action = await select({
+    const action = await menu({
       message: 'Languages',
       choices: [
         { name: 'Add a language', value: 'add' },
@@ -218,8 +213,8 @@ const languagesMenu = async (db: Knex): Promise<void> => {
       ]
     });
 
-    if (action === 'add') await addLanguage(db);
-    else if (action === 'edit') await editLanguage(db);
+    if (action === 'add') await attempt(() => addLanguage(db));
+    else if (action === 'edit') await attempt(() => editLanguage(db));
     else return;
   }
 };
@@ -270,7 +265,7 @@ const addMapping = async (db: Knex, countryCode: string): Promise<void> => {
     message: 'Official status',
     choices: OFFICIAL_STATUSES
   });
-  const percent = await askNumber('Population percent', { min: 0, max: 100 });
+  const percent = await askNumber('Population percent', { min: 0, max: 100, decimals: 3 });
 
   await db('country_languages')
     .insert({
@@ -306,6 +301,7 @@ const editMapping = async (db: Knex, countryCode: string): Promise<void> => {
   const percent = await askNumber('Population percent', {
     min: 0,
     max: 100,
+    decimals: 3,
     default: picked.population_percent === null ? null : Number(picked.population_percent)
   });
 
@@ -353,7 +349,7 @@ const mappingsMenu = async (db: Knex): Promise<void> => {
   let countryCode = await pickCountry(db);
 
   for (;;) {
-    const action = await select({
+    const action = await menu({
       message: `Country languages — ${countryCode}`,
       choices: [
         { name: 'List languages', value: 'list' },
@@ -379,16 +375,18 @@ const mappingsMenu = async (db: Knex): Promise<void> => {
         );
         break;
       case 'add':
-        await addMapping(db, countryCode);
+        await attempt(() => addMapping(db, countryCode));
         break;
       case 'edit':
-        await editMapping(db, countryCode);
+        await attempt(() => editMapping(db, countryCode));
         break;
       case 'remove':
-        await removeMapping(db, countryCode);
+        await attempt(() => removeMapping(db, countryCode));
         break;
       case 'country':
-        countryCode = await pickCountry(db);
+        await attempt(async () => {
+          countryCode = await pickCountry(db);
+        });
         break;
       default:
         return;
@@ -400,7 +398,7 @@ const mappingsMenu = async (db: Knex): Promise<void> => {
 
 export const countriesAndLanguagesMenu = async (db: Knex): Promise<void> => {
   for (;;) {
-    const action = await select({
+    const action = await menu({
       message: 'Countries & languages',
       choices: [
         { name: 'Countries', value: 'countries' },
@@ -410,9 +408,10 @@ export const countriesAndLanguagesMenu = async (db: Knex): Promise<void> => {
       ]
     });
 
-    if (action === 'countries') await countriesMenu(db);
-    else if (action === 'languages') await languagesMenu(db);
-    else if (action === 'mappings') await mappingsMenu(db);
+    // Esc on a sub-menu's first prompt (e.g. the country search) returns here.
+    if (action === 'countries') await attempt(() => countriesMenu(db), { silent: true });
+    else if (action === 'languages') await attempt(() => languagesMenu(db), { silent: true });
+    else if (action === 'mappings') await attempt(() => mappingsMenu(db), { silent: true });
     else return;
   }
 };
