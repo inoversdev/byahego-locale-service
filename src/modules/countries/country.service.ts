@@ -140,6 +140,7 @@ export const getCountryByCode = async (code: string) => {
       FROM country_languages cl
       INNER JOIN languages l ON l.id = cl.language_id
       WHERE cl.country_code = ?
+        AND l.cldr_code <> 'und'
       ORDER BY cl.population_percent DESC, l.english_name ASC`,
       [countryCode]
     ),

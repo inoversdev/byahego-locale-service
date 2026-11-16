@@ -15,6 +15,7 @@
 | `src/scripts/utils.ts` | new: `chunks`, `runInTransaction` (dry-run rollback), `runLoggedImport` (history rows), `runStandalone` |
 | `src/scripts/import-cldr.ts`, `import-iso.ts`, `import-glottolog.ts` | exported `runCldrImport` / `runIsoImport` / `runGlottologImport(db, {dryRun})`; skip manual rows; Glottolog rebuilds `languoid_countries` |
 | `src/modules/countries/country.service.ts` | dialect query joins `languoid_countries`; `getCountryByCode` returns languages + dialects as `languages` |
+| `src/config/knex.ts`, `knexfile.ts` | knex config moved into `src` (so the build's `rootDir` contains it); `knexfile.ts` now re-exports it for the knex CLI |
 | `src/cli/manage.ts` | new entry point and main menu |
 | `src/cli/ui.ts` | new: prompt helpers (country/language search pickers, validated inputs) |
 | `src/cli/menus/{dialects,countries,imports,history}.ts` | new menus |
@@ -33,6 +34,7 @@
 ## API changes
 - No new endpoints, no auth changes.
 - **Breaking:** `GET /api/v1/countries/:code` no longer returns `dialects`. `data.languages` replaces it: the country's languages (from `country_languages`, ordered by `population_percent` descending, then name) followed by its dialects (ordered by name). No other repo consumed `dialects` at the time of the change.
+- The CLDR placeholder `und` ("Unknown language", mapped to AQ, CP and HM) is excluded from `languages`.
 - Each `languages` item has a `type` of `language` or `dialect` and one shared shape (`null` where a field doesn't apply):
 
   | Field | `language` | `dialect` |

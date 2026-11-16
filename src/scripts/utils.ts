@@ -1,5 +1,5 @@
 import knex, { Knex } from 'knex';
-import config from '../../knexfile';
+import config from '../config/knex';
 
 export interface ImportOptions {
   dryRun: boolean;

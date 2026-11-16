@@ -1,6 +1,6 @@
 import knex from 'knex';
 import { select } from '@inquirer/prompts';
-import config from '../../knexfile';
+import config from '../config/knex';
 import { countriesAndLanguagesMenu } from './menus/countries';
 import { dialectsMenu } from './menus/dialects';
 import { historyMenu } from './menus/history';
