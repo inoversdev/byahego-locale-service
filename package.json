@@ -1,0 +1,44 @@
+{
+  "name": "byahego-locale-service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "db:make": "knex --knexfile knexfile.ts migrate:make",
+    "db:migrate": "knex --knexfile knexfile.ts migrate:latest",
+    "db:rollback": "knex --knexfile knexfile.ts migrate:rollback",
+    "db:status": "knex --knexfile knexfile.ts migrate:list",
+    "cldr:import": "tsx src/scripts/import-cldr.ts",
+    "iso:import": "tsx src/scripts/import-iso.ts",
+    "glottolog:import": "tsx src/scripts/import-glottolog.ts",
+    "manage": "tsx src/cli/manage.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@inquirer/prompts": "^8.8.0",
+    "cldr-core": "^49.0.0",
+    "cldr-localenames-full": "^49.0.0",
+    "cors": "^2.8.6",
+    "csv-parse": "^7.0.3",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "i18n-iso-countries": "^7.14.0",
+    "iso-639-3": "^3.0.1",
+    "knex": "^3.3.0",
+    "morgan": "^1.12.1",
+    "mysql2": "^3.24.6"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
