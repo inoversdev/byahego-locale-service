@@ -77,3 +77,48 @@ Run `npm run manage` and press **Esc** (allow about half a second for it to regi
 
 ## Role-based access
 Not applicable: the tool runs locally with the DB credentials in `.env`, and the HTTP API stays public and read-only. Do not expose the tool to untrusted users.
+
+---
+
+# Globe web app
+
+Setup: `npm run web:install && npm run web:build && npm run build && npm start`, open `http://localhost:8082/`.
+
+## Happy path
+1. **Load**: globe renders with a legend, slowly rotating; countries with data are coloured (blue → teal → gold), countries without data are dark grey.
+2. **Hover** a country (desktop): outline highlight and tooltip `Name` + `N languages · M dialects`; cursor becomes a pointer.
+3. **Click Philippines**: globe turns to it, panel shows 19 languages / 16 dialects (current dev data), languages first with official badge and population bar, then dialects. Gold markers appear for dialects with coordinates.
+4. **Click a dialect row** with coordinates: it is highlighted and the globe turns to its marker.
+5. **Search** `philip` → Enter: same result as step 3. Arrow keys move the highlighted option; Esc clears the list.
+6. **Esc** with the panel open: panel closes, highlight and markers clear, URL hash is removed.
+7. **Deep link** `/#US` opens the United States on load; changing the hash to `#PH` opens the Philippines without reload.
+8. **Pause rotation** button toggles label to "Resume rotation"; dragging the globe also pauses it.
+
+## Negative / error tests
+1. Stop the service or block `/api/v1/countries/summary`: globe still renders (untinted) with "Country data unavailable… Retry".
+2. Block `/api/v1/countries/PH` then click Philippines: panel shows the error with a Retry button; Retry works once unblocked.
+3. `/#XX` (unknown code): panel says "This country is not stored in the database." with no Retry.
+4. `GET /api/v1/countries/summary` is not treated as a country code (`/api/v1/countries/PH` still returns the country).
+
+## Edge cases
+1. Click the ocean: nothing opens. Drag across a country: no selection (only a still click selects).
+2. Antarctica (no data): panel shows "No language data is stored for this country yet."
+3. Kosovo is selectable (matched by name to `XK`); Somaliland / N. Cyprus are drawn but not selectable.
+4. Antimeridian countries (Russia, Fiji, United States/Alaska) render without horizontal artefacts and are clickable.
+5. Rapid clicks on different countries: only the last one's data is shown (stale responses ignored).
+6. Phone width (375px): no horizontal scroll; legend hidden; panel is a bottom sheet and the selected country is centred above it.
+7. `prefers-reduced-motion`: no auto-rotate, camera jumps instead of flying, animations disabled.
+8. Hide the tab and return: rendering resumes.
+
+## Branding checks
+1. Header shows the ByaheGo "Go!" logo and "ByaheGo Locale"; the browser tab shows the Go! favicon and title "ByaheGo Locale Globe".
+2. Text is Nunito; accent colour is Sunset Coral (focus ring, buttons, badges, population bars); surfaces are Midnight Indigo.
+3. Legend gradient (periwinkle → coral → sunrise) matches the map colours; "None" swatch matches no-data countries.
+4. Dialect markers (white dot, dark halo) are visible on periwinkle, coral and yellow countries; the pressed dialect's marker turns coral.
+5. "Official" badge and the Retry button show dark text on coral (readable).
+
+## Required parameters
+None (read-only). Only input is the optional URL hash `#<ISO alpha-2>`.
+
+## Role-based access
+Not applicable: the endpoints are unauthenticated, like the existing country routes.

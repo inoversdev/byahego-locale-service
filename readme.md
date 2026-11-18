@@ -580,3 +580,15 @@ For a developer setting up the project for the first time:
 - [ ] Start the API using `npm run dev`.
 
 Once these steps are completed, the developer should have a working local instance of ByaheGo Locale Service.
+
+## Web globe
+
+A read-only 3D globe (three.js) is served at `/`. Click a country to see the languages and dialects stored for it.
+
+```bash
+npm run web:install   # first time only
+npm run web:build     # builds web/dist, served by the API at /
+npm run dev           # then open http://localhost:<PORT>/
+```
+
+For hot reload while developing the UI run `npm run web:dev` (http://localhost:5173, proxies `/api` to the service). The API must be running too (`npm run dev` in a second terminal), otherwise the page shows a 502 / "Can't reach the locale service" error. See `documents/implementation-docs.md`.

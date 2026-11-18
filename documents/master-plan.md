@@ -81,3 +81,19 @@ Write `documents/implementation-docs.md` and `documents/test-cases.md` under the
 - `country_languages` already had a NOT NULL `source` column (value `CLDR`), so the migration does **not** add one there. Manual rows use `source = 'manual'`; the other three tables got a new `source` column (default `import`).
 - ISO import now also writes a `dataset_imports` row (dataset `ISO 639`), so it appears in history.
 - Dry-run support lives in `runInTransaction` (`src/scripts/utils.ts`), which rolls back via a sentinel error.
+
+---
+
+# Plan: Globe web app (three.js) served by the locale service
+
+Goal: visiting `/` shows an interactive 3D globe; clicking a country shows the data stored for it (country, languages, dialects). Read-only. Decisions: Vite + TypeScript app in `web/`, served by Express from `web/dist`; tint by data, dialect markers, country search.
+
+| Order | Agent | Task | Status |
+|-------|-------|------|--------|
+| 1 | `claude` | Backend: `GET /api/v1/countries/summary` + static serving of `web/dist` at `/` | [x] Completed |
+| 2 | `claude` | Frontend: `web/` Vite + TS + three.js globe, panel, search, legend | [x] Completed |
+| 3 | `claude` | Verify (headless Chrome), docs (`implementation-docs.md`, `test-cases.md`, `readme.md`) | [x] Completed |
+
+Implementation notes:
+- Country shapes come from `world-atlas` (50m TopoJSON, numeric ISO ids mapped with `i18n-iso-countries`); Kosovo has no id and is matched by name to `XK`. Territories without a code (Somaliland, N. Cyprus, ...) are drawn but not selectable.
+- Picking: an offscreen id-map gives a candidate in O(1); every candidate is verified with `geoContains` because anti-aliased edge pixels are blends.

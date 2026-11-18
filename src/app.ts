@@ -1,4 +1,6 @@
 
+import fs from 'fs';
+import path from 'path';
 import express, { Request, Response } from 'express';
 import { env } from './config/env';
 import pool from './config/database';
@@ -9,8 +11,22 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Globe web app (built with `npm run web:build`). Falls back to the JSON
+// status response below when it has not been built.
+const webRoot = path.resolve(__dirname, '..', 'web', 'dist');
+const hasWebApp = fs.existsSync(path.join(webRoot, 'index.html'));
+
+if (hasWebApp) {
+  app.use(express.static(webRoot));
+}
+
 // Root endpoint
 app.get('/', (_req: Request, res: Response) => {
+  if (hasWebApp) {
+    res.sendFile(path.join(webRoot, 'index.html'));
+    return;
+  }
+
   res.json({
     success: true,
     message: `${env.appName} is running.`,

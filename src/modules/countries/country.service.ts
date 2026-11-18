@@ -57,6 +57,20 @@ export interface CountryLanguageItem {
   longitude: number | null;
 }
 
+export interface CountrySummary {
+  code: string;
+  name: string;
+  language_count: number;
+  dialect_count: number;
+}
+
+interface CountrySummaryRow extends RowDataPacket {
+  code: string;
+  name: string;
+  language_count: string | number;
+  dialect_count: string | number;
+}
+
 const toNumberOrNull = (value: string | number | null): number | null =>
   value === null || value === undefined ? null : Number(value);
 
@@ -204,4 +218,32 @@ export const getCountryByCode = async (code: string) => {
     ...country,
     languages
   };
+};
+
+/** Every country with how many languages and dialects are stored for it. */
+export const getCountriesSummary = async (): Promise<CountrySummary[]> => {
+  const [rows] = await pool.execute<CountrySummaryRow[]>(
+    `SELECT
+      c.code,
+      c.name,
+      (SELECT COUNT(*)
+         FROM country_languages cl
+         INNER JOIN languages l ON l.id = cl.language_id
+        WHERE cl.country_code = c.code
+          AND l.cldr_code <> 'und') AS language_count,
+      (SELECT COUNT(*)
+         FROM languoid_countries lc
+         INNER JOIN glottolog_languoids gl ON gl.id = lc.languoid_id
+        WHERE lc.country_code = c.code
+          AND gl.level = 'dialect') AS dialect_count
+    FROM countries c
+    ORDER BY c.name ASC`
+  );
+
+  return rows.map((row) => ({
+    code: row.code,
+    name: row.name,
+    language_count: Number(row.language_count),
+    dialect_count: Number(row.dialect_count)
+  }));
 };

@@ -15,7 +15,11 @@
     "cldr:import": "tsx src/scripts/import-cldr.ts",
     "iso:import": "tsx src/scripts/import-iso.ts",
     "glottolog:import": "tsx src/scripts/import-glottolog.ts",
-    "manage": "tsx src/cli/manage.ts"
+    "manage": "tsx src/cli/manage.ts",
+    "web:install": "npm --prefix web install",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
+    "web:typecheck": "npm --prefix web run typecheck"
   },
   "keywords": [],
   "author": "",

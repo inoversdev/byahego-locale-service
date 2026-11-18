@@ -77,3 +77,22 @@ export const getCountryByCode = async (
     });
   }
 };
+
+export const getCountriesSummary = async (
+  _req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const data = await CountryService.getCountriesSummary();
+
+    res.set('Cache-Control', 'public, max-age=300');
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('Failed to retrieve countries summary:', error);
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve countries summary.'
+    });
+  }
+};
