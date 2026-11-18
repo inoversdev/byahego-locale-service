@@ -1,0 +1,66 @@
+# nginx examples for the ByaheGo Locale Globe (web/dist).
+#
+# OPTION A (simplest): static files only. Build with VITE_API_BASE pointing at the API (web/.env) and set CORS_ORIGINS
+# in the service .env; nginx never touches /api:
+#
+#   server {
+#       listen 8084;
+#       server_name locale-web.example.com;
+#       root /path/to/byahego-locale-service/web/dist;
+#       index index.html;
+#       location / { try_files $uri $uri/ /index.html; }
+#   }
+#
+# OPTION B (below): serve web/dist AND forward /api to the locale service (leave VITE_API_BASE empty).
+#
+# Option B details:
+#
+# Why /api must be forwarded: the page calls /api/v1/countries/... on its own origin. With only the usual
+# SPA fallback (try_files ... /index.html) nginx answers those calls with index.html (HTTP 200, not JSON) and the
+# page shows "Country data unavailable: Request failed (200)" / "web page instead of API data".
+#
+# Setup:
+#   1. npm run web:install && npm run web:build   (creates web/dist)
+#   2. Start the API (npm run build && npm start, or a process manager) and note PORT from its .env (8082 in dev,
+#      8090 if unset).
+#   3. Put this server block in /etc/nginx/conf.d/locale-globe.conf (or sites-available), fix server_name, root, port.
+#   4. nginx -t && nginx -s reload
+#
+# Check it:
+#   curl -i http://<server_name>/api/v1/countries/summary   -> Content-Type: application/json (not text/html)
+#
+# Note: nginx's user (www-data / nginx) needs read + traverse permission on the web/dist path. On SELinux hosts
+# (RHEL/Rocky/Alma) also allow nginx to reach the API: setsebool -P httpd_can_network_connect 1
+# Simplest alternative: skip nginx for the page and let the service serve it itself (npm start, open http://<vm>:<PORT>/).
+
+server {
+    listen 80;
+    server_name locale.example.com;
+
+    root /var/www/byahego-locale-service/web/dist;
+    index index.html;
+
+    # API first, so it never falls through to index.html.
+    location /api/ {
+        proxy_pass http://127.0.0.1:8082;   # PORT from the service .env
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # Hashed build assets: cache for a long time.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # Everything else: the single-page app (never cache index.html so new builds show up).
+    location / {
+        add_header Cache-Control "no-cache";
+        try_files $uri $uri/ /index.html;
+    }
+}

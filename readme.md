@@ -592,3 +592,13 @@ npm run dev           # then open http://localhost:<PORT>/
 ```
 
 For hot reload while developing the UI run `npm run web:dev` (http://localhost:5173, proxies `/api` to the service). The API must be running too (`npm run dev` in a second terminal), otherwise the page shows a 502 / "Can't reach the locale service" error. See `documents/implementation-docs.md`.
+
+**Serving the globe**
+- **Same server (simplest):** `npm run web:build`, then `npm run build && npm start` and open `http://<host>:<PORT>/`. One process serves the page and `/api`; no extra config.
+- **Separate static host (nginx etc.):** tell the page where the API is, no proxy needed.
+  1. `web/.env`: `VITE_API_BASE=https://locale-api.example.com` (a URL the *browser* can reach; build-time, see `web/.env.example`).
+  2. Service `.env`: `CORS_ORIGINS=https://locale-web.example.com` (the page's origin, comma-separated; `*` = any).
+  3. `npm run web:build`, serve `web/dist` with any static server (nginx: `root .../web/dist;` + `try_files $uri $uri/ /index.html;`), restart the service.
+  If the page is `https://` the API URL must be `https://` too.
+- **Reverse proxy instead:** forward `/api` to the service and leave `VITE_API_BASE` empty (`deploy/nginx.conf.example`).
+- **Local development:** `npm run web:dev` (Vite proxies `/api`, `VITE_API_BASE` empty).

@@ -1,12 +1,24 @@
 
 import fs from 'fs';
 import path from 'path';
+import cors from 'cors';
 import express, { Request, Response } from 'express';
 import { env } from './config/env';
 import pool from './config/database';
 import countryRoutes from './modules/countries/country.routes';
 
 const app = express();
+
+// Read-only API: browsers on the allowed origins may GET it. No credentials.
+// Without CORS_ORIGINS no CORS headers are sent (same-origin use only).
+if (env.corsOrigins.length > 0) {
+  app.use(
+    cors({
+      origin: env.corsOrigins.includes('*') ? '*' : env.corsOrigins,
+      methods: ['GET', 'HEAD', 'OPTIONS']
+    })
+  );
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

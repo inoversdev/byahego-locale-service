@@ -98,7 +98,8 @@ Setup: `npm run web:install && npm run web:build && npm run build && npm start`,
 1. Stop the service or block `/api/v1/countries/summary`: globe still renders (untinted) with "Country data unavailable… Retry".
 2. Block `/api/v1/countries/PH` then click Philippines: panel shows the error with a Retry button; Retry works once unblocked.
 3. `/#XX` (unknown code): panel says "This country is not stored in the database." with no Retry.
-4. `GET /api/v1/countries/summary` is not treated as a country code (`/api/v1/countries/PH` still returns the country).
+4. Serve `web/dist` from a static host with SPA fallback and **no** `/api` proxy: the page shows "The server answered with a web page instead of API data… (check the nginx or proxy config)" with Retry; after adding the `/api` proxy (`deploy/nginx.conf.example`) and reloading, it loads normally.
+5. `GET /api/v1/countries/summary` is not treated as a country code (`/api/v1/countries/PH` still returns the country).
 
 ## Edge cases
 1. Click the ocean: nothing opens. Drag across a country: no selection (only a still click selects).
@@ -109,6 +110,15 @@ Setup: `npm run web:install && npm run web:build && npm run build && npm start`,
 6. Phone width (375px): no horizontal scroll; legend hidden; panel is a bottom sheet and the selected country is centred above it.
 7. `prefers-reduced-motion`: no auto-rotate, camera jumps instead of flying, animations disabled.
 8. Hide the tab and return: rendering resumes.
+
+## API location (`VITE_API_BASE` / `CORS_ORIGINS`)
+1. **Unset `VITE_API_BASE`**: page served by Express (`npm start`) or Vite dev loads data (same origin).
+2. **Page on another origin** (e.g. static server on :9100) built with `VITE_API_BASE=http://localhost:8082` and service started with `CORS_ORIGINS=http://localhost:9100`: globe tints, `/#PH` opens the Philippines.
+3. **Trailing slash** (`VITE_API_BASE=http://localhost:8082/`) works the same.
+4. **CORS missing** (service without `CORS_ORIGINS`, or origin not listed): browser blocks the call; page shows "Can't reach the locale service at <url>… VITE_API_BASE… CORS_ORIGINS includes <page origin>" with Retry.
+5. `curl -i -H "Origin: <page origin>" <api>/api/v1/countries/summary` returns `Access-Control-Allow-Origin` only for listed origins (none for others); `OPTIONS` preflight returns 204 with `GET,HEAD,OPTIONS`; a POST preflight is not allowed.
+6. `CORS_ORIGINS=*` allows any origin; unset sends no CORS headers.
+7. HTTPS page + `http://` API URL is blocked by the browser (mixed content): use an `https` API URL.
 
 ## Branding checks
 1. Header shows the ByaheGo "Go!" logo and "ByaheGo Locale"; the browser tab shows the Go! favicon and title "ByaheGo Locale Globe".

@@ -91,12 +91,16 @@
 Counts exclude the CLDR placeholder language `und`; dialects are `glottolog_languoids.level = 'dialect'` linked through `languoid_countries`. Existing endpoints are unchanged.
 
 ## Configuration / environment
-No new env vars. The Vite dev proxy reads `PORT` from the service `.env` (default 8090).
+- `web/.env` (build time): `VITE_API_BASE` = API origin the page calls (e.g. `https://locale-api.example.com`). Empty/unset = same origin (Express-served page or the Vite dev proxy). A trailing slash is tolerated. Changing it needs `npm run web:build` again. See `web/.env.example`.
+- Service `.env`: `CORS_ORIGINS` = comma-separated browser origins allowed to call the API (`*` = any, unset = no CORS headers). Needed only when the page is hosted on a different origin. Enabled for `GET, HEAD, OPTIONS` only, no credentials (`src/config/env.ts`, `src/app.ts`, uses the existing `cors` package; `@types/cors` added).
+- The Vite dev proxy reads `PORT` from the service `.env` (default 8090).
+- If the page is served over `https`, `VITE_API_BASE` must be `https` too (browsers block mixed content), and the API URL must be reachable from the user's browser, not only from the server.
 
 ## Usage notes
 - Production: `npm run web:install && npm run web:build && npm run build && npm start`, then open `http://localhost:<PORT>/`.
 - Development: run `npm run dev` (API) and `npm run web:dev` (http://localhost:5173, proxies `/api`) in two terminals. If the API is not running the Vite proxy answers 502 and the page shows "Can't reach the locale service" with a Retry button.
 - If `web/dist` is not built, `/` returns the old JSON status response.
+- Separate static host: either set `VITE_API_BASE` + `CORS_ORIGINS` (no proxy) or proxy `/api`. Without either, `/api` must be proxied to the service (`deploy/nginx.conf.example`). Without it the host answers `/api/...` with `index.html` (HTTP 200, not JSON) and the page shows "The server answered with a web page instead of API data" (previously the generic "Request failed (200)").
 - Countries missing from the 50m map (some micro-states) still open in the panel via search, but cannot be highlighted or flown to.
 - Keyboard: search is a combobox (arrow keys, Enter, Esc); `Esc` closes the panel. Reduced-motion users get no auto-rotate and no camera animation.
 
